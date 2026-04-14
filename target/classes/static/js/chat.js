@@ -1,11 +1,22 @@
 /**
  * SmartSpend AI Assistant — Powered by Gemini
- * Floating chat widget that calls the Gemini API directly from the browser.
+ * API key is never hardcoded here — it is fetched from the backend (/api/config/gemini)
+ * which reads it from application.properties (the server-side .env equivalent).
  */
 
-const GEMINI_API_KEY = '';
-const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+// ── Runtime config (fetched from backend — never hardcoded) ──────────────────
+let _geminiApiUrl = null;  // resolved lazily on first send
 
+async function getGeminiApiUrl() {
+    if (_geminiApiUrl) return _geminiApiUrl;
+    const res = await fetch('/api/config/gemini', { credentials: 'include' });
+    if (!res.ok) throw new Error('Could not load assistant config. Please refresh the page.');
+    const cfg = await res.json();
+    _geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${cfg.model}:generateContent?key=${cfg.apiKey}`;
+    return _geminiApiUrl;
+}
+
+// ── System Prompt ─────────────────────────────────────────────────────────────
 const SYSTEM_PROMPT = `You are an intelligent AI assistant integrated into a web application called "Smart Spend".
 
 Your role is to help users understand and use the platform efficiently. The platform helps users manage expenses, track spending, analyze budgets, and make smarter financial decisions.
@@ -138,7 +149,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ── Send quick prompt ────────────────────────────────────────────────────────
 function sendQuick(text) {
-    // Hide quick prompts after first use
     const qp = document.getElementById('ss-quick-prompts');
     if (qp) qp.style.display = 'none';
     sendMessage(text);
@@ -166,8 +176,8 @@ function scrollToBottom() {
 
 // ── Append a message bubble ───────────────────────────────────────────────────
 function appendMessage(role, text, isHTML = false) {
-    const msgs      = document.getElementById('ss-chat-messages');
-    const wrapper   = document.createElement('div');
+    const msgs    = document.getElementById('ss-chat-messages');
+    const wrapper = document.createElement('div');
     wrapper.className = `ss-msg ${role === 'user' ? 'ss-msg-user' : 'ss-msg-bot'}`;
 
     if (role === 'bot') {
@@ -187,8 +197,8 @@ function appendMessage(role, text, isHTML = false) {
 
 // ── Typing indicator ──────────────────────────────────────────────────────────
 function appendTyping() {
-    const msgs    = document.getElementById('ss-chat-messages');
-    const div     = document.createElement('div');
+    const msgs  = document.getElementById('ss-chat-messages');
+    const div   = document.createElement('div');
     div.className = 'ss-msg ss-msg-bot ss-typing-wrapper';
     div.id        = 'ss-typing';
     div.innerHTML = `
@@ -219,17 +229,11 @@ function escapeHtml(text) {
 // ── Format bot response (basic markdown-lite) ─────────────────────────────────
 function formatBotText(text) {
     return text
-        // Bold **text**
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        // Italic *text*
         .replace(/\*(.*?)\*/g, '<em>$1</em>')
-        // Bullet points
         .replace(/^[-•]\s+(.+)$/gm, '<li>$1</li>')
-        // Wrap consecutive <li> in <ul>
         .replace(/((<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>')
-        // Numbered lists
         .replace(/^\d+\.\s+(.+)$/gm, '<li>$1</li>')
-        // Newlines to breaks
         .replace(/\n/g, '<br>');
 }
 
@@ -251,20 +255,15 @@ async function sendMessage(quickText) {
         input.style.height = 'auto';
     }
 
-    // Disable send while processing
     sendBtn.disabled = true;
-
-    // Append user message
     appendMessage('user', text);
-
-    // Add to history
     conversationHistory.push({ role: 'user', parts: [{ text }] });
-
-    // Show typing indicator
     appendTyping();
 
     try {
-        // Build the request with system instruction + history
+        // Fetch API URL from backend (key lives in application.properties)
+        const apiUrl = await getGeminiApiUrl();
+
         const requestBody = {
             system_instruction: {
                 parts: [{ text: SYSTEM_PROMPT }]
@@ -276,7 +275,7 @@ async function sendMessage(quickText) {
             }
         };
 
-        const response = await fetch(GEMINI_API_URL, {
+        const response = await fetch(apiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestBody)
@@ -291,22 +290,18 @@ async function sendMessage(quickText) {
         }
 
         const botText = data?.candidates?.[0]?.content?.parts?.[0]?.text
-            || 'Sorry, I couldn\'t understand that. Please try again.';
+            || "Sorry, I couldn't understand that. Please try again.";
 
-        // Update history
         conversationHistory.push({ role: 'model', parts: [{ text: botText }] });
-
         removeTyping();
         appendMessage('bot', formatBotText(botText), true);
 
     } catch (err) {
         removeTyping();
         console.error('SmartSpend AI Error:', err);
-
-        // Show actual error to help diagnose
         const userMsg = err.message && err.message.length < 200
-            ? `⚠️ Error: ${err.message}`
-            : '⚠️ Could not reach the assistant. Please try again in a moment.';
+            ? `⚠️ ${err.message}`
+            : '⚠️ Could not reach SpendBot. Please try again in a moment.';
         appendMessage('bot', formatBotText(userMsg), true);
     } finally {
         sendBtn.disabled = false;

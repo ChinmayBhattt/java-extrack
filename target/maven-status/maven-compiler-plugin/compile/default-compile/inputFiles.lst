@@ -2,6 +2,7 @@
 /Users/chinmaybhatt/Downloads/Smart Spend 2.0/src/main/java/com/smartspend/config/SecurityConfig.java
 /Users/chinmaybhatt/Downloads/Smart Spend 2.0/src/main/java/com/smartspend/controller/AuthController.java
 /Users/chinmaybhatt/Downloads/Smart Spend 2.0/src/main/java/com/smartspend/controller/BudgetController.java
+/Users/chinmaybhatt/Downloads/Smart Spend 2.0/src/main/java/com/smartspend/controller/ConfigController.java
 /Users/chinmaybhatt/Downloads/Smart Spend 2.0/src/main/java/com/smartspend/controller/DashboardController.java
 /Users/chinmaybhatt/Downloads/Smart Spend 2.0/src/main/java/com/smartspend/controller/ExpenseController.java
 /Users/chinmaybhatt/Downloads/Smart Spend 2.0/src/main/java/com/smartspend/controller/PageController.java
