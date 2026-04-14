@@ -3,7 +3,7 @@
  * Floating chat widget that calls the Gemini API directly from the browser.
  */
 
-const GEMINI_API_KEY = 'AIzaSyBinxPZ39BGzJ11nJHxGu0_wMl4NyDR788';
+const GEMINI_API_KEY = '';
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
 const SYSTEM_PROMPT = `You are an intelligent AI assistant integrated into a web application called "Smart Spend".
