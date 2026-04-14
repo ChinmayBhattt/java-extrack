@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Login | SmartSpend 2.0</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"/>
+    <link rel="stylesheet" th:href="@{/css/style.css}"/>
+</head>
+<body class="auth-body">
+
+<div class="auth-container">
+    <!-- Left Panel -->
+    <div class="auth-panel auth-left">
+        <div class="auth-brand">
+            <span class="brand-icon-lg">💸</span>
+            <h1>SmartSpend</h1>
+            <p>Track smarter. Save better.</p>
+        </div>
+        <div class="auth-features">
+            <div class="feature-item"><i class="bi bi-bar-chart-fill"></i> Visual Analytics Dashboard</div>
+            <div class="feature-item"><i class="bi bi-wallet-fill"></i>  Budget Limit Tracking</div>
+            <div class="feature-item"><i class="bi bi-robot"></i>        Expense Assistant AI</div>
+            <div class="feature-item"><i class="bi bi-shield-lock-fill"></i> Secure JWT Authentication</div>
+        </div>
+    </div>
+
+    <!-- Right Panel – Login Form -->
+    <div class="auth-panel auth-right">
+        <div class="auth-form-wrapper">
+            <h2 class="auth-title">Welcome back 👋</h2>
+            <p class="auth-subtitle">Sign in to your SmartSpend account</p>
+
+            <!-- Error message placeholder -->
+            <div id="errorAlert" class="alert alert-error" style="display:none;"></div>
+
+            <form id="loginForm" class="auth-form">
+                <div class="form-group">
+                    <label for="email"><i class="bi bi-envelope"></i> Email</label>
+                    <input type="email" id="email" name="email" placeholder="you@example.com" required/>
+                    <span class="field-error" id="emailError"></span>
+                </div>
+
+                <div class="form-group">
+                    <label for="password"><i class="bi bi-lock"></i> Password</label>
+                    <div class="input-icon-right">
+                        <input type="password" id="password" name="password" placeholder="••••••••" required/>
+                        <button type="button" class="toggle-password" onclick="togglePassword('password')">
+                            <i class="bi bi-eye" id="eyeIcon"></i>
+                        </button>
+                    </div>
+                    <span class="field-error" id="passwordError"></span>
+                </div>
+
+                <button type="submit" class="btn-primary btn-full" id="loginBtn">
+                    <span id="loginBtnText">Sign In</span>
+                    <span id="loginSpinner" class="spinner" style="display:none;"></span>
+                </button>
+            </form>
+
+            <p class="auth-switch">
+                Don't have an account? <a th:href="@{/register}">Create one free</a>
+            </p>
+        </div>
+    </div>
+</div>
+
+<script th:src="@{/js/app.js}"></script>
+<script>
+document.getElementById('loginForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const btn = document.getElementById('loginBtn');
+    const spinner = document.getElementById('loginSpinner');
+    const btnText = document.getElementById('loginBtnText');
+    const errorAlert = document.getElementById('errorAlert');
+
+    btn.disabled = true;
+    spinner.style.display = 'inline-block';
+    btnText.textContent = 'Signing in…';
+    errorAlert.style.display = 'none';
+
+    const payload = {
+        email:    document.getElementById('email').value,
+        password: document.getElementById('password').value
+    };
+
+    try {
+        const res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            credentials: 'include'
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+            // JWT cookie is set by server; redirect to dashboard
+            window.location.href = '/dashboard';
+        } else {
+            errorAlert.textContent = data.message || 'Invalid email or password.';
+            errorAlert.style.display = 'block';
+        }
+    } catch (err) {
+        errorAlert.textContent = 'Connection error. Please try again.';
+        errorAlert.style.display = 'block';
+    } finally {
+        btn.disabled = false;
+        spinner.style.display = 'none';
+        btnText.textContent = 'Sign In';
+    }
+});
+
+function togglePassword(id) {
+    const input = document.getElementById(id);
+    const icon  = document.getElementById('eyeIcon');
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = 'bi bi-eye-slash';
+    } else {
+        input.type = 'password';
+        icon.className = 'bi bi-eye';
+    }
+}
+</script>
+</body>
+</html>

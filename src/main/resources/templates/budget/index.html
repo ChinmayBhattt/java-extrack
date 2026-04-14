@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Budgets | SmartSpend 2.0</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"/>
+    <link rel="stylesheet" th:href="@{/css/style.css}"/>
+</head>
+<body>
+<aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand"><span class="brand-icon">💸</span><span class="brand-text">SmartSpend</span></div>
+    <nav class="sidebar-nav">
+        <a th:href="@{/dashboard}" class="nav-item"><i class="bi bi-grid-1x2-fill"></i><span>Dashboard</span></a>
+        <a th:href="@{/expenses}"  class="nav-item"><i class="bi bi-receipt"></i><span>Expenses</span></a>
+        <a th:href="@{/budgets}"   class="nav-item active"><i class="bi bi-wallet2"></i><span>Budgets</span></a>
+        <a th:href="@{/profile}"   class="nav-item"><i class="bi bi-person-circle"></i><span>Profile</span></a>
+    </nav>
+    <div class="sidebar-footer"><button class="logout-btn" onclick="logout()"><i class="bi bi-box-arrow-left"></i><span>Logout</span></button></div>
+</aside>
+
+<main class="main-content">
+    <header class="topbar">
+        <button class="sidebar-toggle" onclick="toggleSidebar()"><i class="bi bi-list"></i></button>
+        <div class="topbar-title">Budget Manager</div>
+    </header>
+
+    <div class="page-body">
+        <div id="alertPlaceholder"></div>
+
+        <div class="page-grid-2">
+            <!-- Left: Set Budget Form -->
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="bi bi-sliders"></i> Set Category Budget</h3>
+                </div>
+                <form id="budgetForm" class="budget-form">
+                    <div class="form-group">
+                        <label for="category"><i class="bi bi-tag-fill"></i> Category</label>
+                        <select id="category" name="category" required>
+                            <option value="">Select category…</option>
+                            <option th:each="cat : ${categories}"
+                                    th:value="${cat.name()}"
+                                    th:text="${cat.emoji + ' ' + cat.displayName}"></option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="limitAmount"><i class="bi bi-currency-rupee"></i> Monthly Limit (₹)</label>
+                        <input type="number" id="limitAmount" name="limitAmount"
+                               placeholder="e.g. 5000" step="0.01" min="1" required/>
+                    </div>
+                    <small class="form-hint">Setting a budget limit will warn you when you exceed it this month.</small>
+                    <button type="submit" class="btn-primary btn-full" id="budgetBtn">
+                        <span id="budgetBtnText">Set Budget</span>
+                        <span id="budgetSpinner" class="spinner" style="display:none;"></span>
+                    </button>
+                </form>
+            </div>
+
+            <!-- Right: Current Budgets List -->
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="bi bi-list-check"></i> Current Budgets</h3>
+                </div>
+
+                <div th:if="${budgets.isEmpty()}" class="empty-state mini">
+                    <i class="bi bi-wallet empty-icon"></i>
+                    <p>No budgets set yet. Set one on the left!</p>
+                </div>
+
+                <div th:unless="${budgets.isEmpty()}" class="budget-list" id="budgetList">
+                    <div th:each="budget : ${budgets}" class="budget-item"
+                         th:classappend="${budget.overLimit} ? ' budget-over'">
+                        <div class="budget-item-header">
+                            <span class="budget-cat-name">
+                                <span th:text="${budget.categoryEmoji}">🍔</span>
+                                <span th:text="${budget.categoryDisplayName}">Category</span>
+                            </span>
+                            <div class="budget-item-actions">
+                                <span class="budget-status-badge"
+                                      th:classappend="${budget.overLimit} ? ' badge-danger' : ' badge-success'"
+                                      th:text="${budget.overLimit} ? '⚠ Over Budget' : '✓ On Track'">On Track</span>
+                                <button class="btn-icon btn-delete"
+                                        th:onclick="'deleteBudget(' + ${budget.id} + ', this)'"
+                                        title="Remove budget">
+                                    <i class="bi bi-trash-fill"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="budget-amounts">
+                            <span>Spent: <strong th:text="'₹' + ${#numbers.formatDecimal(budget.amountSpent, 1, 2)}">₹0</strong></span>
+                            <span>Limit: <strong th:text="'₹' + ${#numbers.formatDecimal(budget.limitAmount, 1, 2)}">₹0</strong></span>
+                        </div>
+
+                        <div class="progress-bar-outer">
+                            <div class="progress-bar-inner"
+                                 th:style="'width:' + ${budget.progressPercent} + '%;'"
+                                 th:classappend="${budget.overLimit} ? ' progress-danger' : (${budget.progressPercent > 75} ? ' progress-warning' : ' progress-success')">
+                            </div>
+                        </div>
+                        <div class="budget-remaining">
+                            <span th:if="${!budget.overLimit}"
+                                  th:text="'₹' + ${#numbers.formatDecimal(budget.remaining, 1, 2)} + ' remaining'"></span>
+                            <span th:if="${budget.overLimit}" class="text-danger"
+                                  th:text="'₹' + ${#numbers.formatDecimal(budget.amountSpent - budget.limitAmount, 1, 2)} + ' over limit!'"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script th:src="@{/js/app.js}"></script>
+<script>
+document.getElementById('budgetForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const btn     = document.getElementById('budgetBtn');
+    const spinner = document.getElementById('budgetSpinner');
+    const btnText = document.getElementById('budgetBtnText');
+
+    btn.disabled = true;
+    spinner.style.display = 'inline-block';
+
+    const payload = {
+        category:    document.getElementById('category').value,
+        limitAmount: parseFloat(document.getElementById('limitAmount').value)
+    };
+
+    try {
+        const res = await fetch('/api/budgets', {
+            method: 'POST', credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+            showAlert('success', 'Budget set successfully!');
+            setTimeout(() => location.reload(), 800);
+        } else {
+            const data = await res.json();
+            showAlert('danger', data.message || 'Could not set budget.');
+        }
+    } catch (err) {
+        showAlert('danger', 'Connection error.');
+    } finally {
+        btn.disabled = false;
+        spinner.style.display = 'none';
+        btnText.textContent = 'Set Budget';
+    }
+});
+
+async function deleteBudget(id, btn) {
+    if (!confirm('Remove this budget?')) return;
+    btn.disabled = true;
+    try {
+        const res = await fetch('/api/budgets/' + id, { method: 'DELETE', credentials: 'include' });
+        if (res.ok) {
+            btn.closest('.budget-item').style.opacity = '0';
+            setTimeout(() => location.reload(), 300);
+        }
+    } catch (err) {
+        showAlert('danger', 'Connection error.');
+        btn.disabled = false;
+    }
+}
+</script>
+</body>
+</html>
